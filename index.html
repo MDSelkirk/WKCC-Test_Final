@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jjimenezshaw/Leaflet.Control.Layers.Tree@master/L.Control.Layers.Tree.css" />
+    <style>
+        body, html, #map { height: 100%; margin: 0; padding: 0; }
+        .popup { text-align: left; }
+
+        .custom-legend {
+            background-color: rgba(255,255,255, 0.9);
+            outline-width: 0px;
+            border: 1px solid rgba(0,0,0,0.2) !important;
+            outline: none !important;
+            box-shadow: 5px 5px 7px rgb(163, 160, 160, 0.4) !important;
+        }
+
+        .leaflet-control.abstract {
+            text-align: justify;
+            font-size: 12px;
+            line-height: 20px;
+            font-family: 'Open Sans', Helvetica, sans-serif;
+            padding: 12px 16px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 6px;
+            max-width: 350px;
+            box-shadow: 0 0 12px rgba(0,0,0,0.2);
+        }
+
+        .leaflet-control.filter-panel {
+            font-size: 12px;
+            font-family: 'Open Sans', Helvetica, sans-serif;
+            padding: 12px 16px;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 6px;
+            max-width: 250px;
+            box-shadow: 0 0 12px rgba(0,0,0,0.2);
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .filter-toggle {
+            cursor: pointer;
+            margin: 0;
+            user-select: none;
+            font-weight: bold;
+        }
+
+        .filter-arrow {
+            display: inline-block;
+            margin-left: 5px;
+            transition: transform 0.2s ease;
+        }
+
+        .filter-content {
+            margin-top: 10px;
+        }
+
+        .filter-group {
+            margin-bottom: 12px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 4px;
+            font-size: 11px;
+        }
+
+        .filter-group select {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .filter-group input[type="checkbox"] {
+            margin-right: 6px;
+        }
+
+        .clear-filters {
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 10px;
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .clear-filters:hover {
+            background: #e0e0e0;
+        }
+
+        #abstract-toggle {
+            cursor: pointer;
+            margin: 0;
+            user-select: none;
+        }
+
+        #abstract-arrow {
+            display: inline-block;
+            margin-left: 5px;
+            transition: transform 0.2s ease;
+        }
+
+        #abstract-content img {
+            display: block;
+            width: 80%;
+            margin: auto;
+        }
+        
+        .Label_Parks {
+            background: none !important;      /* remove background */
+            border: none !important;          /* remove border */
+            box-shadow: none !important;      /* remove shadow */
+            padding: 0 !important;            /* remove padding */
+            font-family: 'Verdana', sans-serif;
+            font-size: 10pt;
+            font-style: italic;
+            color: #294d29;
+            text-shadow: -1px -1px 0 #ffffff,
+                        -1px 1px 0 #ffffff,
+                        1px 1px 0 #ffffff,
+                        1px -1px 0 #ffffff;
+        }
+
+        .Label_Parks.leaflet-tooltip::before {
+        content: none !important;
+        }
+
+        .leaflet-interactive:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        }
+
+        .legend-disabled {
+            opacity: 0.4; 
+            pointer-events: none;
+        }
+
+    </style>
+    <title>West Kootenay Cycling Routes Map</title>
+    <link rel="icon" type="image/x-icon" href="images/WKCC.png">
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/gh/jjimenezshaw/Leaflet.Control.Layers.Tree@master/L.Control.Layers.Tree.js"></script>
+    <script src="https://unpkg.com/leaflet.vectorgrid@latest/dist/Leaflet.VectorGrid.bundled.js"></script>
+    <script>
+
+    var map = L.map('map', {zoomControl:true, maxZoom:15, minZoom:6}).setView([49.9, -117.9], 8);
+
+    L.control.scale({
+        position: 'bottomright', 
+        metric: true,           
+        imperial: false,        
+        maxWidth: 200           
+    }).addTo(map);
+
+    // Create custom panes for better layer organization
+    map.createPane('terrainPane');
+    map.getPane('terrainPane').style.zIndex = 250;
+    
+    map.createPane('boundariesPane'); 
+    map.getPane('boundariesPane').style.zIndex = 350;
+    
+    map.createPane('routesPane');
+    map.getPane('routesPane').style.zIndex = 450;
+    
+    map.createPane('BikePackingPane');
+    map.getPane('BikePackingPane').style.zIndex = 470;
+    
+    map.createPane('pointsPane');
+    map.getPane('pointsPane').style.zIndex = 550;
+
+    // Global variables for filtering
+    var existingRoutesFeatures = [];
+    var routeFilters = {
+        type: 'all',
+        surface: 'all',
+        transCanadaTrail: false
+    };
+
+    function Label_Parks(feature, layer) {
+            if (feature.properties['park_name']) {
+                layer.bindTooltip(feature.properties['park_name'], {
+                    className: 'Label_Parks',
+                    sticky: true,     
+                    direction: 'auto'
+                });
+
+                layer.on({
+                    mouseover: function(e) { e.target.openTooltip(); },
+                    mouseout: function(e) { e.target.closeTooltip(); }
+                });
+            }
+        }
+
+    var cartoDB = L.tileLayer("https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png", {
+        attribution: '<a href="https://cartodb.com/basemaps/">Map tiles by CartoDB, under CC BY 3.0. Data by OpenStreetMap, under ODbL.</a>',
+    }).addTo(map);
+
+    var esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    });
+
+    var hillshadeLayer = L.tileLayer("hillshade_tiles/{z}/{x}/{y}.png", {
+        pane: 'terrainPane',
+        maxZoom: 14,
+        minZoom: 8,
+        opacity: 0.7,
+        attribution: 'Terrain'
+    }).addTo(map);
+
+    var contoursLayer = L.vectorGrid.protobuf('https://api.maptiler.com/tiles/contours-v2/{z}/{x}/{y}.pbf?key=MjRuIt3YXiPwNbQiRoht', {
+        pane: 'terrainPane',
+        vectorTileLayerStyles: {"contour": {color: "#c4d4f2", weight: 0.5}, "contour_ft": {opacity: 0}, "high-res": {opacity: 0}},
+        maxZoom: 14,
+        minZoom: 8,
+    });
+
+    // Declare layer variables
+    var Existing_Routes = L.layerGroup().addTo(map); 
+    var Proposed_Routes = L.layerGroup().addTo(map); 
+    var Municipal_Parks = L.layerGroup().addTo(map); 
+    var Provincial_Parks= L.layerGroup().addTo(map);
+    var Municipal_Boundaries= L.layerGroup();
+    var Regional_Districts_Boundaries= L.layerGroup().addTo(map);
+    var Bike_Shops = L.layerGroup(); 
+    var Recreation_Sites = L.layerGroup();
+    var BC_Transit_Stops = L.layerGroup();
+    var Frog_Peak_Loop= L.layerGroup();
+    var Kootenay_Confluence= L.layerGroup(); 
+    var Santa_Rosa_Valleys_and_Vistas = L.layerGroup();
+    var Bonnington_Scrambler= L.layerGroup();
+
+    // Function to get route style based on filter state
+    function getRouteStyle(feature, isDimmed) {
+        if (isDimmed) {
+            return {
+                color: "rgba(17,116,6,0.3)", 
+                weight: 1, 
+                opacity: 0.3
+            };
+        } else {
+            return {
+                color: "rgba(17,116,6,1.0)", 
+                weight: 3, 
+                opacity: 0.9
+            };
+        }
+    }
+
+    // Function to check if a feature matches current filters
+    function featureMatchesFilters(feature) {
+        var props = feature.properties;
+        
+        // Check type filter
+        if (routeFilters.type !== 'all' && props.Type !== routeFilters.type) {
+            return false;
+        }
+        
+        // Check surface filter
+        if (routeFilters.surface !== 'all' && props.Surface !== routeFilters.surface) {
+            return false;
+        }
+        
+        // Check Trans Canada Trail filter
+        if (routeFilters.transCanadaTrail && props.Trans_Canada_Trail !== 'Yes') {
+            return false;
+        }
+        
+        return true;
+    }
+
+    // Function to update route styling based on filters
+    function updateRouteFiltering() {
+        existingRoutesFeatures.forEach(function(layer) {
+            var matches = featureMatchesFilters(layer.feature);
+            var style = getRouteStyle(layer.feature, !matches);
+            layer.setStyle(style);
+        });
+    }
+
+    // Load Existing Routes with filtering capability
+    $.getJSON("data/Existing_Routes.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'routesPane',
+            style: function(feature) {
+                return getRouteStyle(feature, false);
+            },
+            interactive: true,
+            onEachFeature: function(feature, layer) {
+                // Store reference to layer for filtering
+                existingRoutesFeatures.push(layer);
+                
+                // Safely get properties with fallbacks
+                var props = feature.properties || {};
+                var name = props.Name || props.name || 'Unnamed Route';
+                var type = props.Type || props.type || 'Unknown';
+                var tenure = props.Tenure || props.tenure || 'Unknown';
+                var source = props.Source || props.source || '';
+                var length = props.Shape_length || props.length || props.Length || 'Unknown';
+                var description = props.description || props.Description || 'No description available';
+                var surface = props.Surface || props.surface || 'Unknown';
+                var tct = props.Trans_Canada_Trail || props.trans_canada_trail || 'No';
+                
+                var displayUrl = source.length > 40 ? source.substring(0, 40) + "[...]" : source;
+                var sourceLink = source ? '<a href="' + source + '" target="_blank">' + displayUrl + '</a>' : 'No source';
+                
+                layer.bindPopup(
+                    '<div class="popup">' +
+                    '<table>' +
+                        '<tr><td><b>Name:</b></td><td>' + name + '</td></tr>' +
+                        '<tr><td><b>Type:</b></td><td>' + type + '</td></tr>' +
+                        '<tr><td><b>Network:</b></td><td>' + tenure + '</td></tr>' +
+                        '<tr><td><b>Source:</b></td><td>' + sourceLink + '</td></tr>' +
+                        '<tr><td><b>Length (km):</b></td><td>' + length + '</td></tr>' +
+                        '<tr><td><b>Description:</b></td><td><p style="margin:0; max-width:200px; white-space:normal;">' + description + '</p></td></tr>' +
+                        '<tr><td><b>Surface:</b></td><td>' + surface + '</td></tr>' +
+                        '<tr><td><b>Trans Canada Trail:</b></td><td>' + tct + '</td></tr>' +
+                    '</table>' +
+                    '</div>'
+                );
+            }
+        }).addTo(Existing_Routes);
+        
+        // Populate filter dropdowns after data is loaded
+        populateFilterDropdowns(data);
+    });
+
+    // Function to populate filter dropdowns with unique values
+    function populateFilterDropdowns(geojsonData) {
+        var types = new Set();
+        var surfaces = new Set();
+        
+        geojsonData.features.forEach(function(feature) {
+            if (feature.properties.Type) types.add(feature.properties.Type);
+            if (feature.properties.Surface) surfaces.add(feature.properties.Surface);
+        });
+        
+        // Populate type dropdown
+        var typeSelect = document.getElementById('type-filter');
+        Array.from(types).sort().forEach(function(type) {
+            var option = document.createElement('option');
+            option.value = type;
+            option.textContent = type;
+            typeSelect.appendChild(option);
+        });
+        
+        // Populate surface dropdown  
+        var surfaceSelect = document.getElementById('surface-filter');
+        Array.from(surfaces).sort().forEach(function(surface) {
+            var option = document.createElement('option');
+            option.value = surface;
+            option.textContent = surface;
+            surfaceSelect.appendChild(option);
+        });
+    }
+    
+    // Load Proposed Routes
+    $.getJSON("data/Proposed_Routes.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'routesPane',
+            style: {
+                opacity: 1,
+                color: 'rgba(252,0,0,1.0)',
+                dashArray: '4.0,2.0',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 1.0,
+                fillOpacity: 0 
+            },
+            interactive: false
+        }).addTo(Proposed_Routes);
+    });
+
+    // Load Municipal Parks
+    $.getJSON("data/Municipal_Parks.geojson", function(data) {
+        L.geoJSON(data, {
+            style: {
+                opacity: 1,
+                color: 'rgba(37,96,18,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(114,155,111,0.6039215686274509)'
+            },
+            interactive: true,
+            onEachFeature: Label_Parks
+        }).addTo(Municipal_Parks);
+    });
+
+    // Load Provincial Parks
+    $.getJSON("data/Provincial_Parks.geojson", function(data) {
+        L.geoJSON(data, {
+            style: {   
+                opacity: 1,
+                color: 'rgba(37,96,18,1.0)',
+                dashArray: '5.0,1.0',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 0.6,
+                fillColor: 'rgba(114,155,111,0.6039215686274509)'
+            },
+            interactive: true,
+            onEachFeature: Label_Parks
+        }).addTo(Provincial_Parks);
+    });
+
+    // Load Municipal Boundaries
+    $.getJSON("data/Municipal_Boundaries.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'boundariesPane',
+            style: {   
+                opacity: 0.15,
+                color: 'rgba(255,142,37)',
+                dashArray: '10.0,2.0,4.0,2.0',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(255,158,23,0.0)'
+            },
+            minZoom: 11,
+            maxZoom: 15,
+            interactive: false
+        }).addTo(Municipal_Boundaries);
+    });
+    
+    // Load Regional Districts Boundaries
+    $.getJSON("data/Regional_Districts_Boundaries.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'boundariesPane',
+            style: { 
+                opacity: 0.3,
+                color: 'rgba(128,128,128,1.0)',
+                dashArray: '15.0,3.0,6.0,3.0',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 3.0, 
+                fillOpacity: 0
+            },
+            interactive: false
+        }).addTo(Regional_Districts_Boundaries);   
+    });
+
+    // Load Bike Shops
+    $.getJSON("data/Bike_Shops.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'pointsPane',
+            pointToLayer: function(feature, latlng) {
+                return L.marker(latlng, {
+                    icon: L.icon({
+                        iconUrl: 'markers/BikeShops_12.svg',
+                        iconSize: [19, 19],
+                        iconAnchor: [9, 9] 
+                    })
+                });
+            },
+            interactive: true,
+            onEachFeature: function(feature, layer) {
+                var url = feature.properties.URL || "";
+                var displayUrl = url.length > 40 ? url.substring(0, 40) + "[...]" : url;
+                layer.bindPopup(
+                    '<div class="popup">' +
+                    '<table>' +
+                        '<tr><td><b>Name:</b></td><td>' + feature.properties.Name + '</td></tr>' +
+                        '<tr><td><b>Address:</b></td><td>' + feature.properties.StreetAddress + '</td></tr>' +
+                        '<tr><td><b>City:</b></td><td>' + feature.properties.City + '</td></tr>' +
+                        '<tr><td><b>Province:</b></td><td>' + feature.properties.Province + '</td></tr>' +
+                        '<tr><td><b>Postal Code:</b></td><td>' + feature.properties.Shape_length + '</td></tr>' +
+                        '<tr><td><b>URL:</b></td><td><a href="' + url + '" target="_blank">' + displayUrl + '</a></td></tr>' +
+                        '<tr><td><b>Phone Number:</b></td><td>' + feature.properties.PhoneNumber + '</td></tr>' +
+                    '</table>' +
+                    '</div>'
+                );
+            }            
+        }).addTo(Bike_Shops);
+    });
+
+    // Load Recreation Sites
+    $.getJSON("data/Recreation_Sites.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'pointsPane',
+            pointToLayer: function(feature, latlng) {
+                var triangleIcon = L.icon({
+                    iconUrl: 'markers/BC_Parks_logo.png',
+                    iconSize: [12, 12],
+                    iconAnchor: [5, 5] 
+                });
+                return L.marker(latlng, { icon: triangleIcon });
+            },
+            interactive: true,
+            onEachFeature: function(feature, layer) {
+                layer.bindPopup(
+                    '<div class="popup" style="width:600px;">' +
+                    '<table style="width:100%;">' +
+                        '<tr><td style="padding-right:15px;"><b>Name:</b></td><td>' + feature.properties.project_name + '</td></tr>' +
+                        '<tr><td style="padding-right:15px;"><b>Number of<br> Camp Sites:</b></td><td>' + feature.properties.num_camp_sites + '</td></tr>' +
+                        '<tr><td style="padding-right:15px;"><b>Description:</b></td><td><p style="margin:0; max-width 600px; white-space:normal;">' + feature.properties.project_description + '</p></td></tr>' +
+                    '</table>' +
+                    '</div>',
+                    {maxWidth: 800}
+                );
+            }
+        }).addTo(Recreation_Sites);
+    });
+
+    // Load BC Transit Stops
+    $.getJSON("data/BC_Transit_Stops.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'pointsPane',
+            pointToLayer: function(feature, latlng) {
+                return L.marker(latlng, {
+                    icon: L.icon({
+                        iconUrl: 'markers/BCTransitStops_10.svg',
+                        iconSize: [14, 14],
+                        iconAnchor: [7, 7]
+                    })
+                });
+            },
+        }).addTo(BC_Transit_Stops);
+    });
+
+    // Load Named Routes
+    $.getJSON("data/Frog_Peak_Loop.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'BikePackingPane',
+            style: {
+                opacity: 1,
+                color: 'rgba(247,72,33,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 2.0,
+                fillOpacity: 0
+            },
+            interactive: true,
+            onEachFeature: function(feature, layer) {
+                var url = feature.properties.Source || "";
+                var displayUrl = url.length > 40 ? url.substring(0, 40) + "[...]" : url;
+                layer.bindPopup(
+                    '<div class="popup">' +
+                    '<table>' +
+                        '<tr><td><b>Name:</b></td><td>' + feature.properties.name + '</td></tr>' +
+                        '<tr><td><b>Length (km):</b></td><td>' + feature.properties.Length + '</td></tr>' +
+                        '<tr><td><b>Source:</b></td><td><a href="' + url + '" target="_blank">' + displayUrl + '</a></td></tr>' +
+                    '</table>' +
+                    '</div>'
+                );
+            }
+        }).addTo(Frog_Peak_Loop);
+    });
+
+    $.getJSON("data/Kootenay_Confluence.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'BikePackingPane',
+            style: {
+                opacity: 1,
+                color: 'rgba(247,222,33,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 2.0,
+                fillOpacity: 0
+            },
+            interactive: true,
+            onEachFeature: function(feature, layer) {
+                var url = feature.properties.Source || "";
+                var displayUrl = url.length > 40 ? url.substring(0, 40) + "[...]" : url;
+                layer.bindPopup(
+                    '<div class="popup">' +
+                    '<table>' +
+                        '<tr><td><b>Name:</b></td><td>' + feature.properties.name + '</td></tr>' +
+                        '<tr><td><b>Length (km):</b></td><td>' + feature.properties.Length + '</td></tr>' +
+                        '<tr><td><b>Source:</b></td><td><a href="' + url + '" target="_blank">' + displayUrl + '</a></td></tr>' +
+                    '</table>' +
+                    '</div>'
+                );
+            }
+        }).addTo(Kootenay_Confluence);
+    });
+
+    $.getJSON("data/Santa_Rosa_Valleys_and_Vistas.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'BikePackingPane',
+            style: {
+                opacity: 1,
+                color: 'rgba(132,55,38,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 2.0,
+                fillOpacity: 0
+            },
+            interactive: true,
+            onEachFeature: function(feature, layer) {
+                var url = feature.properties.Source || "";
+                var displayUrl = url.length > 40 ? url.substring(0, 40) + "[...]" : url;
+                layer.bindPopup(
+                    '<div class="popup">' +
+                    '<table>' +
+                        '<tr><td><b>Name:</b></td><td>' + feature.properties.name + '</td></tr>' +
+                        '<tr><td><b>Length (km):</b></td><td>' + feature.properties.Length + '</td></tr>' +
+                        '<tr><td><b>Source:</b></td><td><a href="' + url + '" target="_blank">' + displayUrl + '</a></td></tr>' +
+                    '</table>' +
+                    '</div>'
+                );
+            }
+        }).addTo(Santa_Rosa_Valleys_and_Vistas);
+    });
+
+    $.getJSON("data/Bonnington_Scrambler.geojson", function(data) {
+        L.geoJSON(data, {
+            pane: 'BikePackingPane',
+            style: {
+                opacity: 1,
+                color: 'rgba(255,170,23,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 2.0,
+                fillOpacity: 0
+            },
+            interactive: true,
+            onEachFeature: function(feature, layer) {
+                var url = feature.properties.Source || "";
+                var displayUrl = url.length > 40 ? url.substring(0, 40) + "[...]" : url;
+                layer.bindPopup(
+                    '<div class="popup">' +
+                    '<table>' +
+                        '<tr><td><b>Name:</b></td><td>' + feature.properties.name + '</td></tr>' +
+                        '<tr><td><b>Length (km):</b></td><td>' + feature.properties.Length + '</td></tr>' +
+                        '<tr><td><b>Source:</b></td><td><a href="' + url + '" target="_blank">' + displayUrl + '</a></td></tr>' +
+                    '</table>' +
+                    '</div>'
+                );
+            }
+        }).addTo(Bonnington_Scrambler);
+    });
+
+    function createLegendIcon(iconFile, label) {
+    return '<img src="legend/' + iconFile + '" style="height:16px;vertical-align:middle;margin-right:4px;">' + label;
+    };
+
+    var treeControl = L.control.layers.tree(
+            {
+                label: '<b>Base Maps</b>',
+                children: [
+                    {label: 'CartoDB', layer: cartoDB},
+                    {label: 'Imagery', layer: esri}
+                ]
+            },
+            {
+                label: '<b>Overlays</b>',
+                selectAllCheckbox: true,
+                children: [
+                    {
+                        label: '<b>Terrain Overlays</b>',
+                        selectAllCheckbox: false,
+                        children: [
+                            {label: createLegendIcon("hillshade.png", "Hillshade"), layer: hillshadeLayer},
+                            {label: createLegendIcon("contours.png", "Contours"), layer: contoursLayer}
+                        ]
+                    },
+                    {
+                        label: '<b>Bike Routes</b>',
+                        selectAllCheckbox: false,
+                        children: [
+                            {label: createLegendIcon("existing_routes.png", "Existing Routes"), layer: Existing_Routes},
+                            {label: '<span class="legend-proposed-routes">'+createLegendIcon("proposed_routes.png", "Proposed Routes")+'</span>', layer: Proposed_Routes},
+                            {
+                                label: '<b>Bike Packing Routes</b>',
+                                selectAllCheckbox: false,
+                                children: [
+                                    {label: createLegendIcon("frog_peak.png", "Frog Peak Loop"), layer: Frog_Peak_Loop},
+                                    {label: createLegendIcon("kootenay_confluence.png", "Kootenay Confluence"), layer: Kootenay_Confluence},
+                                    {label: createLegendIcon("santa_rosa.png", "Santa Rosa Valleys and Vistas"), layer: Santa_Rosa_Valleys_and_Vistas},
+                                    {label: createLegendIcon("bonnington_scrambler.png", "Bonnington Scrambler"), layer: Bonnington_Scrambler}
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        label: '<b>Parks</b>',
+                        selectAllCheckbox: false,
+                        children: [
+                            {label: '<span class="legend-municipal-parks">'+createLegendIcon("municipal_parks.png", "Municipal Parks")+'</span>', layer: Municipal_Parks},
+                            {label: createLegendIcon("provincial_parks.png", "Provincial Parks"), layer: Provincial_Parks}
+                        ]
+                    },
+                    {
+                        label: '<b>Boundaries</b>',
+                        selectAllCheckbox: false,
+                        children: [
+                            {label:'<span class="legend-municipal-boundaries">'+createLegendIcon("municipal_boundaries.png", "Municipal Boundaries")+'</span>', layer: Municipal_Boundaries},
+                            {label: createLegendIcon("regional_districts.png", "Regional Districts"), layer: Regional_Districts_Boundaries}
+                        ]
+                    },
+                    {label: createLegendIcon("bike_shops.png", "Bike Shops"), layer: Bike_Shops},
+                    {label: createLegendIcon("recreation_sites.png", "Recreation Sites"), layer: Recreation_Sites},
+                    {label: createLegendIcon("bc_transit.png", "BC Transit Stops"), layer: BC_Transit_Stops}
+                ]
+            },
+            {
+                namedToggle: true,
+                selectorBack: false,
+                closedSymbol: '&#8862; &#x1f5c0;',
+                openedSymbol: '&#8863; &#x1f5c1;',
+                spaceSymbol: '&#x00A0;&#x00A0;&#x00A0;',
+                collapsed: false,
+                position: 'topright'
+            }
+        ).addTo(map);
+
+        var zoomRestrictedLayers = [
+            { layer: Municipal_Boundaries, legendClass: "legend-municipal-boundaries", minZoom: 12, maxZoom: 15 },
+            { layer: Municipal_Parks, legendClass: "legend-municipal-parks", minZoom: 11, maxZoom: 15 },
+            { layer: Proposed_Routes, legendClass: "legend-proposed-routes", minZoom: 10, maxZoom: 15 },
+            // add more layers here as needed
+        ];
+
+        function updateZoomRestrictedLayers() {
+            var zoom = map.getZoom();
+
+            zoomRestrictedLayers.forEach(function(item) {
+                var legendItem = document.querySelector("." + item.legendClass);
+                var labelEl = legendItem ? legendItem.closest("label") : null;
+                var checkbox = legendItem ? legendItem.closest("label").querySelector("input[type=checkbox]") : null;
+
+                if (zoom >= item.minZoom && zoom <= item.maxZoom) {
+                    if (!map.hasLayer(item.layer)) map.addLayer(item.layer);
+                    if (legendItem) legendItem.classList.remove("legend-disabled");
+                    if (checkbox) checkbox.disabled = false;
+                } else {
+                    if (map.hasLayer(item.layer)) map.removeLayer(item.layer);
+                    if (legendItem) legendItem.classList.add("legend-disabled");
+                    if (checkbox) checkbox.disabled = true;
+                }
+            });
+        }
+
+        // Run once at load
+        setTimeout(updateZoomRestrictedLayers, 100);
+
+        // Run on every zoom change
+        map.on("zoomend", updateZoomRestrictedLayers);
+
+        var treeContainer = treeControl.getContainer();
+        treeContainer.classList.add('custom-legend');
+
+        // Create filter panel
+        var filterPanel = L.control({ position: 'topleft' });
+
+        filterPanel.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'leaflet-control filter-panel');
+
+            div.innerHTML = `
+                <p class="filter-toggle">🔍 Route Filters
+                    <span class="filter-arrow">▾</span>
+                </p>
+                <div class="filter-content" style="display: none;">
+                    <div class="filter-group">
+                        <label>Route Type:</label>
+                        <select id="type-filter">
+                            <option value="all">All Types</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Surface:</label>
+                        <select id="surface-filter">
+                            <option value="all">All Surfaces</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>
+                            <input type="checkbox" id="tct-filter"> Trans Canada Trail Only
+                        </label>
+                    </div>
+                    <button class="clear-filters" onclick="clearAllFilters()">Clear All Filters</button>
+                </div>`;
+
+            // Toggle panel
+            var toggle = div.querySelector('.filter-toggle');
+            var content = div.querySelector('.filter-content');
+            var arrow = div.querySelector('.filter-arrow');
+
+            toggle.onclick = function() {
+                if(content.style.display === 'none') {
+                    content.style.display = 'block';
+                    arrow.style.transform = 'rotate(0deg)';
+                } else {
+                    content.style.display = 'none';
+                    arrow.style.transform = 'rotate(180deg)';
+                }
+            };
+
+            // Prevent map interaction when clicking on controls
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+
+            return div;
+        };
+
+        filterPanel.addTo(map);
+
+        // Add event listeners for filters (these will be available once the panel is added)
+        setTimeout(function() {
+            document.getElementById('type-filter').addEventListener('change', function() {
+                routeFilters.type = this.value;
+                updateRouteFiltering();
+            });
+
+            document.getElementById('surface-filter').addEventListener('change', function() {
+                routeFilters.surface = this.value;
+                updateRouteFiltering();
+            });
+
+            document.getElementById('tct-filter').addEventListener('change', function() {
+                routeFilters.transCanadaTrail = this.checked;
+                updateRouteFiltering();
+            });
+        }, 100);
+
+        // Global function to clear all filters
+        window.clearAllFilters = function() {
+            routeFilters.type = 'all';
+            routeFilters.surface = 'all';
+            routeFilters.transCanadaTrail = false;
+            
+            document.getElementById('type-filter').value = 'all';
+            document.getElementById('surface-filter').value = 'all';
+            document.getElementById('tct-filter').checked = false;
+            
+            updateRouteFiltering();
+        };
+
+        var abstract = L.control({ position: 'bottomleft' });
+
+        abstract.onAdd = function(map) {
+        var div = L.DomUtil.create('div', 'leaflet-control abstract');
+
+        div.innerHTML = `
+            <p id="abstract-toggle"><b>West Kootenay Cycling Map</b>
+                <span id="abstract-arrow">▾</span>
+            </p>
+            <div id="abstract-content">
+                <p>
+    This interactive web map presents the complete cycling network of the West Kootenays, including existing infrastructure 
+    (<img src="legend/existing_routes.png" style="height:16px; width:16px; display:inline-block; vertical-align:middle; margin:0 2px;">) 
+    and proposed future routes(<img src="legend/proposed_routes.png" style="height:16px; width:16px; display:inline-block; vertical-align:middle; margin:0 2px;">), 
+    providing an overview of current and planned connectivity across the region. Have a look and play around with the <b>legend</b> and <b>filters</b>. Some layers also have <b>popups</b> 
+    that can be toggled by clicking their features!
+    </p>
+    <p>This project has been developped with the participation of the <b>West Kootenay Cycling Coalition</b>
+    <img src="images/WKCC.png" alt="WKCC logo">
+    <p><b>* </b>For more information or comments, feel free to reach out at:<br><a href="https://westkootenaycycling.ca/contact">https://westkootenaycycling.ca/contact</a></p>
+    </div>`;
+
+        var toggle = div.querySelector('#abstract-toggle');
+        var content = div.querySelector('#abstract-content');
+        var arrow = div.querySelector('#abstract-arrow');
+
+        // Start expanded
+        content.style.display = 'block';
+
+        // Toggle function
+        toggle.onclick = function() {
+            if(content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.style.transform = 'rotate(0deg)';
+            } else {
+                content.style.display = 'none';
+                arrow.style.transform = 'rotate(180deg)';
+            }
+        };
+
+        return div;
+    };
+
+    abstract.addTo(map);     
+
+    </script>
+</body>
+</html>
